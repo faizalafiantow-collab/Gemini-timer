@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gemini Reset Timer</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f; --surface: #13131a; --border: #1e1e2e;
+    --accent: #4f8ef7; --accent2: #a78bfa; --green: #34d399;
+    --orange: #fb923c; --red: #f87171; --text: #e2e8f0; --muted: #64748b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text); font-family: 'Syne', sans-serif;
+    min-height: 100vh; padding: 20px 16px 40px;
+    background-image:
+      radial-gradient(ellipse at 20% 0%, rgba(79,142,247,0.08) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 100%, rgba(167,139,250,0.06) 0%, transparent 60%);
+  }
+  header { text-align: center; margin-bottom: 20px; }
+  header h1 {
+    font-size: 1.5rem; font-weight: 800;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  header p { color: var(--muted); font-size: 0.75rem; font-family: 'Space Mono', monospace; margin-top: 4px; }
+
+  /* Setup panel */
+  #setup-panel {
+    max-width: 480px; margin: 0 auto 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px;
+  }
+  #setup-panel h2 { font-size: 0.8rem; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .setup-row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+  .setup-row label { font-size: 0.75rem; color: var(--muted); font-family: 'Space Mono', monospace; }
+  .setup-row input {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 9px 12px; color: var(--text); font-family: 'Space Mono', monospace; font-size: 0.8rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .setup-row input:focus { border-color: var(--accent); }
+  .btn-save {
+    width: 100%; padding: 10px; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white; font-family: 'Syne', sans-serif; font-weight: 700;
+    font-size: 0.85rem; cursor: pointer; margin-top: 4px;
+  }
+  .btn-save:active { opacity: 0.85; }
+  #setup-status { font-size: 0.72rem; font-family: 'Space Mono', monospace; margin-top: 8px; text-align: center; }
+  #setup-status.ok { color: var(--green); }
+  #setup-status.err { color: var(--red); }
+
+  #config-bar {
+    max-width: 480px; margin: 0 auto 16px;
+    background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.25);
+    border-radius: 10px; padding: 8px 14px;
+    font-size: 0.72rem; font-family: 'Space Mono', monospace;
+    color: var(--green); display: none; justify-content: space-between; align-items: center;
+  }
+  #config-bar button {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 0.7rem; font-family: 'Space Mono', monospace;
+  }
+
+  .cards { display: flex; flex-direction: column; gap: 12px; max-width: 480px; margin: 0 auto; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px; position: relative; overflow: hidden; transition: border-color 0.3s;
+  }
+  .card.running { border-color: rgba(251,146,60,0.4); }
+  .card.ready { border-color: rgba(52,211,153,0.4); }
+  .card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    opacity: 0; transition: opacity 0.3s;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+  }
+  .card.running::before { opacity: 1; background: linear-gradient(90deg, var(--orange), #fbbf24); }
+  .card.ready::before { opacity: 1; background: linear-gradient(90deg, var(--green), #6ee7b7); }
+  .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+  .acct-name { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex-shrink: 0; transition: background 0.3s; }
+  .card.running .dot { background: var(--orange); box-shadow: 0 0 8px var(--orange); animation: pulse 2s infinite; }
+  .card.ready .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  @keyframes pulse { 0%,100%{opacity:1}50%{opacity:0.4} }
+  .name-label {
+    font-weight: 700; font-size: 0.95rem; color: var(--text);
+    background: transparent; border: none; outline: none;
+    font-family: 'Syne', sans-serif; flex: 1; min-width: 0;
+    border-bottom: 1px dashed transparent; transition: border-color 0.2s;
+  }
+  .name-label:focus { border-bottom-color: var(--accent); color: var(--accent); }
+  .edit-hint { font-size: 0.6rem; color: var(--muted); opacity: 0.5; }
+  .status-badge {
+    font-size: 0.68rem; font-family: 'Space Mono', monospace;
+    padding: 3px 10px; border-radius: 20px;
+    background: rgba(100,116,139,0.15); color: var(--muted); border: 1px solid var(--border);
+    transition: all 0.3s; flex-shrink: 0;
+  }
+  .card.running .status-badge { background: rgba(251,146,60,0.12); color: var(--orange); border-color: rgba(251,146,60,0.3); }
+  .card.ready .status-badge { background: rgba(52,211,153,0.12); color: var(--green); border-color: rgba(52,211,153,0.3); }
+  .timer-display {
+    font-family: 'Space Mono', monospace; font-size: 1.9rem; font-weight: 700;
+    color: var(--muted); letter-spacing: 2px; margin-bottom: 12px; transition: color 0.3s;
+  }
+  .card.running .timer-display { color: var(--orange); }
+  .card.ready .timer-display { color: var(--green); font-size: 1.05rem; letter-spacing: 0; }
+  .progress-bar { height: 3px; background: var(--border); border-radius: 3px; margin-bottom: 14px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--orange), #fbbf24); border-radius: 3px; width: 0%; transition: width 1s linear; }
+  .card-actions { display: flex; gap: 8px; }
+  .btn {
+    flex: 1; padding: 9px; border: none; border-radius: 10px;
+    font-family: 'Syne', sans-serif; font-weight: 700; font-size: 0.82rem;
+    cursor: pointer; transition: all 0.15s;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-start { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: white; }
+  .btn-start:hover { opacity: 0.88; }
+  .btn-stop {
+    background: rgba(248,113,113,0.12); color: var(--red);
+    border: 1px solid rgba(248,113,113,0.25); flex: 0 0 auto; padding: 9px 14px;
+  }
+  .reset-time { font-size: 0.7rem; font-family: 'Space Mono', monospace; color: var(--muted); margin-top: 8px; }
+
+  #log-section { max-width: 480px; margin: 24px auto 0; }
+  #log-section h2 { font-size: 0.72rem; font-family: 'Space Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 10px; }
+  #log-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  #log-list li { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--muted); padding: 7px 12px; background: var(--surface); border-radius: 8px; border-left: 2px solid var(--border); }
+  #log-list li.log-reset { border-left-color: var(--green); color: var(--green); }
+  #log-list li.log-start { border-left-color: var(--orange); color: var(--orange); }
+  #log-list li.log-err { border-left-color: var(--red); color: var(--red); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⏱ Gemini Reset Timer</h1>
+  <p>5 jam per akun · notif via Telegram</p>
+</header>
+
+<!-- Setup awal -->
+<div id="setup-panel">
+  <h2>⚙️ Setup Telegram (sekali saja)</h2>
+  <div class="setup-row">
+    <label>Bot Token</label>
+    <input type="text" id="inp-token" placeholder="1234567890:ABCdef..." />
+  </div>
+  <div class="setup-row">
+    <label>Chat ID kamu</label>
+    <input type="text" id="inp-chatid" placeholder="123456789" />
+  </div>
+  <button class="btn-save" onclick="saveConfig()">💾 Simpan & Mulai</button>
+  <div id="setup-status"></div>
+</div>
+
+<div id="config-bar">
+  <span>✅ Telegram terhubung</span>
+  <button onclick="resetConfig()">Ganti konfigurasi</button>
+</div>
+
+<div class="cards" id="cards"></div>
+
+<div id="log-section">
+  <h2>// Log Aktivitas</h2>
+  <ul id="log-list"></ul>
+</div>
+
+<script>
+const DURATION = 5 * 60 * 60 * 1000;
+const NAMES_KEY = 'gemini_names';
+const TIMERS_KEY = 'gemini_timers';
+const CONFIG_KEY = 'gemini_config';
+
+let config = null;
+let intervals = {};
+
+// --- Config ---
+function loadConfig() {
+  try { const s = localStorage.getItem(CONFIG_KEY); if (s) return JSON.parse(s); } catch(e) {}
+  return null;
+}
+function saveConfig() {
+  const token = document.getElementById('inp-token').value.trim();
+  const chatId = document.getElementById('inp-chatid').value.trim();
+  const status = document.getElementById('setup-status');
+  if (!token || !chatId) { status.textContent = '⚠️ Isi semua kolom dulu'; status.className = 'err'; return; }
+  config = { token, chatId };
+  try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch(e) {}
+  status.textContent = '✅ Tersimpan!'; status.className = 'ok';
+  setTimeout(showMainUI, 800);
+}
+function resetConfig() {
+  config = null;
+  try { localStorage.removeItem(CONFIG_KEY); } catch(e) {}
+  document.getElementById('setup-panel').style.display = 'block';
+  document.getElementById('config-bar').style.display = 'none';
+}
+function showMainUI() {
+  document.getElementById('setup-panel').style.display = 'none';
+  const bar = document.getElementById('config-bar');
+  bar.style.display = 'flex';
+}
+
+// --- Names ---
+function loadNames() {
+  try { const s = localStorage.getItem(NAMES_KEY); if (s) return JSON.parse(s); } catch(e) {}
+  return ['Akun 1','Akun 2','Akun 3','Akun 4','Akun 5','Akun 6'];
+}
+function saveNames() {
+  const names = Array.from({length:6},(_,i)=>{
+    const el = document.getElementById(`name-${i}`);
+    return el ? (el.value.trim() || 'Akun '+(i+1)) : 'Akun '+(i+1);
+  });
+  try { localStorage.setItem(NAMES_KEY, JSON.stringify(names)); } catch(e) {}
+}
+
+// --- Timer data ---
+function loadTimerData() {
+  try { const s = localStorage.getItem(TIMERS_KEY); if (s) return JSON.parse(s); } catch(e) {}
+  return {};
+}
+function saveTimerData(data) {
+  try { localStorage.setItem(TIMERS_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+// --- Helpers ---
+function pad(n){return String(n).padStart(2,'0');}
+function formatTime(ms){
+  if(ms<=0)return'00:00:00';
+  return`${pad(Math.floor(ms/3600000))}:${pad(Math.floor((ms%3600000)/60000))}:${pad(Math.floor((ms%60000)/1000))}`;
+}
+function formatClock(ts){return new Date(ts).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});}
+function getName(i){const el=document.getElementById(`name-${i}`);return el?(el.value.trim()||'Akun '+(i+1)):'Akun '+(i+1);}
+
+function addLog(msg, type=''){
+  const li = document.createElement('li');
+  li.textContent = `[${new Date().toLocaleTimeString('id-ID')}] ${msg}`;
+  if(type) li.classList.add(`log-${type}`);
+  const list = document.getElementById('log-list');
+  list.prepend(li);
+  if(list.children.length > 12) list.lastChild.remove();
+}
+
+// --- Cards ---
+function renderCards(){
+  const names = loadNames();
+  const container = document.getElementById('cards');
+  container.innerHTML = '';
+  names.forEach((name, i) => {
+    const card = document.createElement('div');
+    card.className = 'card'; card.id = `card-${i}`;
+    card.innerHTML = `
+      <div class="card-header">
+        <div class="acct-name">
+          <div class="dot"></div>
+          <input class="name-label" id="name-${i}" type="text" value="${name}" placeholder="Nama akun" maxlength="30" onchange="saveNames()" onblur="saveNames()"/>
+          <span class="edit-hint">✎</span>
+        </div>
+        <span class="status-badge" id="badge-${i}">Siap</span>
+      </div>
+      <div class="timer-display" id="timer-${i}">05:00:00</div>
+      <div class="progress-bar"><div class="progress-fill" id="prog-${i}"></div></div>
+      <div class="card-actions">
+        <button class="btn btn-start" onclick="startTimer(${i})">⚡ Kena Limit</button>
+        <button class="btn btn-stop" onclick="stopTimer(${i})">✕</button>
+      </div>
+      <div class="reset-time" id="resettime-${i}"></div>`;
+    container.appendChild(card);
+  });
+}
+
+// --- Timer logic ---
+async function startTimer(i, endTs) {
+  if (!config) { addLog('Setup Telegram dulu!', 'err'); return; }
+  if (intervals[i]) clearInterval(intervals[i]);
+
+  const end = endTs || (Date.now() + DURATION);
+  const data = loadTimerData(); data[i] = end; saveTimerData(data);
+
+  document.getElementById(`card-${i}`).className = 'card running';
+  document.getElementById(`badge-${i}`).textContent = 'Limit';
+  document.getElementById(`resettime-${i}`).textContent = `Reset jam ${formatClock(end)}`;
+
+  if (!endTs) {
+    addLog(`${getName(i)} kena limit → reset jam ${formatClock(end)}`, 'start');
+    // Kirim ke server
+    try {
+      await fetch('/api/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index: i, name: getName(i), chatId: config.chatId, botToken: config.token })
+      });
+    } catch(e) { addLog('Gagal hubungi server', 'err'); }
+  }
+
+  intervals[i] = setInterval(() => tick(i, end), 1000);
+  tick(i, end);
+}
+
+function tick(i, endTs) {
+  const remaining = endTs - Date.now();
+  if (remaining <= 0) {
+    clearInterval(intervals[i]);
+    const data = loadTimerData(); delete data[i]; saveTimerData(data);
+    document.getElementById(`timer-${i}`).textContent = '✅ Siap dipakai!';
+    document.getElementById(`badge-${i}`).textContent = 'Reset!';
+    document.getElementById(`prog-${i}`).style.width = '100%';
+    document.getElementById(`resettime-${i}`).textContent = '';
+    document.getElementById(`card-${i}`).className = 'card ready';
+    addLog(`${getName(i)} sudah reset!`, 'reset');
+    return;
+  }
+  const pct = ((DURATION - remaining) / DURATION) * 100;
+  document.getElementById(`timer-${i}`).textContent = formatTime(remaining);
+  document.getElementById(`prog-${i}`).style.width = Math.min(pct,100) + '%';
+}
+
+async function stopTimer(i) {
+  if (intervals[i]) clearInterval(intervals[i]);
+  const data = loadTimerData(); delete data[i]; saveTimerData(data);
+  document.getElementById(`card-${i}`).className = 'card';
+  document.getElementById(`timer-${i}`).textContent = '05:00:00';
+  document.getElementById(`badge-${i}`).textContent = 'Siap';
+  document.getElementById(`prog-${i}`).style.width = '0%';
+  document.getElementById(`resettime-${i}`).textContent = '';
+  try {
+    await fetch('/api/stop', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ index: i })
+    });
+  } catch(e) {}
+}
+
+// Restore timers on reload
+function restoreTimers() {
+  const data = loadTimerData();
+  Object.keys(data).forEach(i => {
+    const endTs = data[i];
+    if (endTs - Date.now() > 0) {
+      startTimer(parseInt(i), endTs);
+    } else {
+      const name = getName(parseInt(i));
+      document.getElementById(`card-${i}`).className = 'card ready';
+      document.getElementById(`timer-${i}`).textContent = '✅ Siap dipakai!';
+      document.getElementById(`badge-${i}`).textContent = 'Reset!';
+      document.getElementById(`prog-${i}`).style.width = '100%';
+      addLog(`${name} sudah reset`, 'reset');
+      delete data[i];
+    }
+  });
+  saveTimerData(data);
+}
+
+// Init
+config = loadConfig();
+renderCards();
+if (config) {
+  showMainUI();
+  restoreTimers();
+} else {
+  document.getElementById('setup-panel').style.display = 'block';
+}
+</script>
+</body>
+</html>
